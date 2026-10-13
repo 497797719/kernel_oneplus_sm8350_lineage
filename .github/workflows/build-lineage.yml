@@ -29,9 +29,16 @@ jobs:
       - name: Build kernel (lahaina-qgki, GCC)
         run: |
           set -o pipefail
-          # WALT trace.h: TRACE_INCLUDE_PATH removed by 0002 -> default trace/events path;
-          # symlink so <trace/events/trace.h> resolves deterministically
-          mkdir -p include/trace/events && ln -sf $PWD/kernel/sched/walt/trace.h include/trace/events/trace.h
+          # One-shot fix for every trace header using TRACE_INCLUDE_PATH '.' (breaks GCC/clang
+          # quote-include): revert to default trace/events path + symlink each header there.
+          mkdir -p include/trace/events
+          grep -rl 'TRACE_INCLUDE_PATH *\.' --include='*.h' drivers kernel net sound fs arch include 2>/dev/null | while read -r f; do
+            sed -i 's/^#define TRACE_INCLUDE_PATH *\.$/#undef TRACE_INCLUDE_PATH/' "$f"
+            name=$(grep -m1 'TRACE_INCLUDE_FILE' "$f" | sed -E 's/.*TRACE_INCLUDE_FILE[[:space:]]+([A-Za-z0-9_]+).*/\1/')
+            [ -n "$name" ] && ln -sf "$PWD/$f" "include/trace/events/$name.h" 2>/dev/null || true
+          done
+          # WALT is covered above too; ensure its events symlink exists
+          ln -sf $PWD/kernel/sched/walt/trace.h include/trace/events/trace.h 2>/dev/null || true
           export KCFLAGS="-Wno-error"
           make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- vendor/lahaina-qgki_defconfig
           make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- -j$(nproc) Image.gz dtbs 2>&1 | tee build.log
