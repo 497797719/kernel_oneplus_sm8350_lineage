@@ -30,6 +30,8 @@ jobs:
 
       - name: Build kernel (lahaina-qgki)
         run: |
+          # safety: make ./trace.h resolvable for WALT trace (see 0002 patch)
+          ln -sf $PWD/kernel/sched/walt/trace.h include/trace/trace.h || true
           make ARCH=arm64 LLVM=1 CC=clang vendor/lahaina-qgki_defconfig
           make ARCH=arm64 LLVM=1 CC=clang -j$(nproc) Image.gz dtbs 2>&1 | tee build.log
           echo "--- outputs ---"
