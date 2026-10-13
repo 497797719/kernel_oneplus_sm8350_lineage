@@ -24,9 +24,8 @@ jobs:
 
       - name: Setup clang (r416183b, LineageOS official)
         run: |
-          git clone --depth 1 https://github.com/LineageOS/android_prebuilts_clang_kernel_linux-x86 clang
-          cd clang && (git checkout clang-r416183b 2>/dev/null || git checkout master 2>/dev/null || true)
-          cd .. && echo "$PWD/clang/bin" >> $GITHUB_PATH
+          git clone --depth 1 --branch lineage-20.0 https://github.com/LineageOS/android_prebuilts_clang_kernel_linux-x86_clang-r416183b clang
+          echo "$PWD/clang/bin" >> $GITHUB_PATH
           clang --version | head -2
 
       - name: Build kernel (lahaina-qgki)
