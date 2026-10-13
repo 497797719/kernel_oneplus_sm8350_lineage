@@ -30,7 +30,7 @@ jobs:
 
       - name: Build kernel (lahaina-qgki)
         run: |
-          make ARCH=arm64 LLVM=1 CC=clang lahaina-qgki_defconfig
+          make ARCH=arm64 LLVM=1 CC=clang vendor/lahaina-qgki_defconfig
           make ARCH=arm64 LLVM=1 CC=clang -j$(nproc) Image.gz dtbs 2>&1 | tee build.log
           echo "--- outputs ---"
           ls -la arch/arm64/boot/Image.gz
