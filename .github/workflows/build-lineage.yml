@@ -1,53 +1,46 @@
-name: Build Lineage Kernel (lemonadep)
-
+name: build-lineage-kernel
 on:
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 180
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: lineage-23.2-custom
           fetch-depth: 1
 
       - name: Apply custom patches
         run: |
-          ls -la patches/ 2>/dev/null || echo "no patches dir"
+          ls patches/
           for p in patches/*.patch; do
-            [ -f "$p" ] || continue
-            echo "applying $p"
-            git apply --check "$p" && git apply "$p" && echo "OK $p" || { echo "FAIL $p"; exit 1; }
+            echo "=== applying $p ==="
+            git apply --verbose "$p" || { echo "PATCH FAILED: $p"; exit 1; }
           done
+          git diff --stat | tail -5
 
-      - name: Setup clang (r416183b, LineageOS official)
+      - name: Setup GCC toolchain (aarch64, LineageOS prebuilt)
         run: |
-          git clone --depth 1 --branch lineage-20.0 https://github.com/LineageOS/android_prebuilts_clang_kernel_linux-x86_clang-r416183b clang
-          echo "$PWD/clang/bin" >> $GITHUB_PATH
-          clang --version | head -2
+          git clone --depth 1 https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_aarch64_aarch64-linux-android-4.9.git gcc
+          ls gcc/bin/ | head -5
+          gcc/bin/aarch64-linux-android-gcc --version | head -1
 
-      - name: Build kernel (lahaina-qgki)
+      - name: Build kernel (lahaina-qgki, GCC)
         run: |
-          # --- trace include fix: TRACE_INCLUDE_PATH . resolves relative to include/trace,
-          # breaks clang (walt, hid-trace, ...). Symlink every such header into include/trace/
-          mkdir -p include/trace/events
-          ln -sf $PWD/kernel/sched/walt/trace.h include/trace/events/trace.h || true
-          for f in $(grep -rlE '^[[:space:]]*#[[:space:]]*define[[:space:]]+TRACE_INCLUDE_PATH[[:space:]]+\.' --include='*.h' drivers kernel sound block fs net crypto security ipc 2>/dev/null); do
-            ln -sf "$PWD/$f" "include/trace/$(basename "$f")" || true
-          done
-          make ARCH=arm64 LLVM=1 CC=clang vendor/lahaina-qgki_defconfig
-          make ARCH=arm64 LLVM=1 CC=clang -j$(nproc) Image.gz dtbs 2>&1 | tee build.log
-          echo "--- outputs ---"
-          ls -la arch/arm64/boot/Image.gz
-          ls arch/arm64/boot/dts/vendor/qcom/*.dtb 2>/dev/null | head -20
+          make ARCH=arm64 CROSS_COMPILE=$PWD/gcc/bin/aarch64-linux-android- vendor/lahaina-qgki_defconfig
+          make ARCH=arm64 CROSS_COMPILE=$PWD/gcc/bin/aarch64-linux-android- -j$(nproc) Image.gz dtbs 2>&1 | tee build.log
+          echo "--- build outputs ---"
+          ls -la arch/arm64/boot/ 2>/dev/null || echo "no boot dir"
 
       - name: Upload kernel artifacts
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: kernel-out
+          name: kernel-artifacts
           path: |
             arch/arm64/boot/Image.gz
-            arch/arm64/boot/dts/vendor/qcom/
+            arch/arm64/boot/dts/vendor/qcom/*.dtb
             build.log
+          if-no-files-found: warn
