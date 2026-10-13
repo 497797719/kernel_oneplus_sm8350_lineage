@@ -2741,14 +2741,23 @@ static int syna_tcm_set_gesture_mode(struct syna_tcm_data *tcm_info, int enable)
 		 tcm_info->gesture_mask);
 
 	if (enable) {
-		/* P0-custom v2: force full gesture mask and write DC_GESTURE_MASK
-		 * before DC_IN_WAKEUP_GESTURE_MODE so firmware picks up the mask
-		 * while entering gesture mode (dts default 0x1 leaves DTAP dead). */
-		tcm_info->gesture_mask = 0xFFFF;
 		retval = syna_tcm_sleep(tcm_info, false);
 
 		if (retval < 0) {
 			TPD_INFO("%s: Failed to exit sleep mode\n", __func__);
+			return retval;
+		}
+
+		/* P0-custom v2: force full gesture mask and write DC_GESTURE_MASK
+		 * BEFORE DC_IN_WAKEUP_GESTURE_MODE so firmware picks up the mask
+		 * while entering gesture mode (dts default 0x1 leaves DTAP dead). */
+		tcm_info->gesture_mask = 0xFFFF;
+		retval = syna_tcm_set_dynamic_config(tcm_info,
+						     DC_GESTURE_MASK,
+						     tcm_info->gesture_mask);
+
+		if (retval < 0) {
+			TPD_INFO("%s: Failed to set dynamic gesture mask config\n", __func__);
 			return retval;
 		}
 
