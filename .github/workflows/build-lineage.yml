@@ -52,6 +52,9 @@ jobs:
               fi
             fi
           done
+          # Remove -Werror everywhere (GCC 9 on 2019 kernel: many -Werror=* fire; KCFLAGS=-Wno-error
+          # is overridden because -Werror is appended after KCFLAGS in the build flags)
+          grep -rl -- '-Werror' --include='Makefile*' . 2>/dev/null | xargs sed -i 's/-Werror//g' 2>/dev/null || true
           export KCFLAGS="-Wno-error"
           make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- vendor/lahaina-qgki_defconfig
           make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- -j$(nproc) Image.gz dtbs 2>&1 | tee build.log
