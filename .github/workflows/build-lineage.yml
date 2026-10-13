@@ -2,8 +2,6 @@ name: Build Lineage Kernel (lemonadep)
 
 on:
   workflow_dispatch:
-  push:
-    branches: [lineage-23.2-custom]
 
 jobs:
   build:
@@ -14,6 +12,15 @@ jobs:
         with:
           ref: lineage-23.2-custom
           fetch-depth: 1
+
+      - name: Apply custom patches
+        run: |
+          ls -la patches/ 2>/dev/null || echo "no patches dir"
+          for p in patches/*.patch; do
+            [ -f "$p" ] || continue
+            echo "applying $p"
+            git apply --check "$p" && git apply "$p" && echo "OK $p" || { echo "FAIL $p"; exit 1; }
+          done
 
       - name: Setup clang (r416183b, LineageOS official)
         run: |
