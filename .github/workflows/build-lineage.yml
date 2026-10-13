@@ -29,18 +29,22 @@ jobs:
       - name: Build kernel (lahaina-qgki, GCC)
         run: |
           set -o pipefail
-          # Fix EVERY trace header that defines TRACE_INCLUDE_PATH '.' (breaks GCC/clang):
-          # revert to default trace/events path, then symlink each header into include/trace/events/
+          # Trace include fixes for GCC (no quote-include fallback):
+          # 1) headers using TRACE_INCLUDE_PATH '.' resolve as ./<file>.h from include/trace/ -> symlink there
+          # 2) headers WITHOUT TRACE_INCLUDE_PATH resolve as <trace/events/<file>.h> -> symlink into events/
+          # (known official include/trace/trace.h and events/trace.h already exist and compile)
           mkdir -p include/trace/events
           for f in $(find drivers kernel net sound fs arch include -name '*.h' 2>/dev/null); do
-            if grep -q '^#define TRACE_INCLUDE_PATH[[:space:]]*\.' "$f" 2>/dev/null; then
-              sed -i 's/^#define TRACE_INCLUDE_PATH[[:space:]]*\.$/#undef TRACE_INCLUDE_PATH/' "$f"
-            fi
-            name=$(grep -m1 '^#define TRACE_INCLUDE_FILE[[:space:]]*[A-Za-z0-9_]' "$f" 2>/dev/null | sed -E 's/^#define TRACE_INCLUDE_FILE[[:space:]]+([A-Za-z0-9_]+).*/\1/' || true)
+            name=$(grep -m1 '^#define TRACE_INCLUDE_FILE[[:space:]]*[A-Za-z0-9_-]' "$f" 2>/dev/null | sed -E 's/^#define TRACE_INCLUDE_FILE[[:space:]]+([A-Za-z0-9_-]+).*/\1/' || true)
             if [ -n "$name" ]; then
-              ln -sf "$PWD/$f" "include/trace/events/$name.h" 2>/dev/null || true
+              if grep -q '^#define TRACE_INCLUDE_PATH[[:space:]]*\.' "$f" 2>/dev/null; then
+                ln -sf "$PWD/$f" "include/trace/$name.h" 2>/dev/null || true
+              elif ! grep -q '^#define TRACE_INCLUDE_PATH' "$f" 2>/dev/null; then
+                ln -sf "$PWD/$f" "include/trace/events/$name.h" 2>/dev/null || true
+              fi
             fi
           done
+          # WALT: keep it compiling against official events/trace.h (0002 already removed its '.')
           ln -sf $PWD/kernel/sched/walt/trace.h include/trace/events/trace.h 2>/dev/null || true
           export KCFLAGS="-Wno-error"
           make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- vendor/lahaina-qgki_defconfig
