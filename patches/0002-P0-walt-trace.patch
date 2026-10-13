@@ -1,9 +1,0 @@
---- a/kernel/sched/walt/trace.h
-+++ b/kernel/sched/walt/trace.h
-@@ -676,6 +676,5 @@
- 
- #undef TRACE_INCLUDE_PATH
--#define TRACE_INCLUDE_PATH .
- #define TRACE_INCLUDE_FILE trace
- 
- #include <trace/define_trace.h>
