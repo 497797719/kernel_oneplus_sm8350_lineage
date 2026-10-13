@@ -1,20 +1,16 @@
 --- a/drivers/input/touchscreen/oplus_touchscreen_v2/touchpanel_common_driver.c
 +++ b/drivers/input/touchscreen/oplus_touchscreen_v2/touchpanel_common_driver.c
-@@ -1533,7 +1533,10 @@
+@@ -1535,4 +1535,7 @@
  	ts->black_gesture_support   = of_property_read_bool(np,
  				      "black_gesture_support");
-+	/* P0-custom: OnePlus 9 Pro (lemonadep) 官方 dts 未配置 black_gesture_support,
-+	 * 导致息屏时驱动不切 MODE_GESTURE，双击唤醒/息屏手势全部失效。
-+	 * 本机触摸 IC (S6SY791/S6SY792) 驱动完整支持 MODE_GESTURE，强制启用。 */
++	/* P0-custom: official dts lacks black_gesture_support on lemonadep,
++	 * so suspend never enters MODE_GESTURE and double-tap-to-wake is dead. */
 +	ts->black_gesture_support = true;
- 	ts->gesture_test_support    = of_property_read_bool(np,
- 				      "black_gesture_test_support");
-@@ -3115,7 +3118,9 @@
- 	ts->is_suspended = 0;
- 	ts->suspend_state = TP_SPEEDUP_RESUME_COMPLETE;
+ 
+ 	ts->black_gesture_indep_support = true;
+@@ -3117,4 +3120,6 @@
  	ts->gesture_enable = 1;
-+	/* P0-custom: 默认置位双击唤醒掩码 (DOU_TAP=1 -> bit1)，
-+	 * 开机即支持息屏双击唤醒，用户可在设置/节点中关闭 */
++	/* P0-custom: default-enable DOU_TAP mask for double-tap-to-wake */
 +	ts->gesture_enable_indep |= (1 << DOU_TAP);
  	ts->fd_enable = 0;
  	ts->fp_enable = 0;
