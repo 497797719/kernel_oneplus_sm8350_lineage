@@ -21,19 +21,16 @@ jobs:
           done
           git diff --stat | tail -5
 
-      - name: Setup GCC toolchain (aarch64, Ubuntu)
+      - name: Setup clang/lld toolchain (official Android toolchain family)
         run: |
-          sudo apt-get update -qq && sudo apt-get install -y -qq gcc-aarch64-linux-gnu
-          aarch64-linux-gnu-gcc --version | head -1
+          sudo apt-get update -qq && sudo apt-get install -y -qq clang lld llvm
+          clang --version | head -1
+          ld.lld --version | head -1
 
-      - name: Build kernel (lahaina-qgki, GCC)
+      - name: Build kernel (lahaina-qgki, clang+lld)
         run: |
           set -o pipefail
-          # Trace include fixes for GCC (no quote-include fallback to source dir):
-          # - headers with TRACE_INCLUDE_PATH '.' resolve as ./<file>.h from include/trace/.
-          #   If their TRACE_INCLUDE_FILE is the generic 'trace' (regmap/mac80211/... all collide
-          #   on include/trace/trace.h), rename it to a unique name based on their dir.
-          # - headers WITHOUT TRACE_INCLUDE_PATH resolve as <trace/events/<file>.h> -> symlink into events/.
+          # Trace include fixes (same quote-include issue for clang): see comments below.
           mkdir -p include/trace/events
           for f in $(find drivers kernel net sound fs arch include -name '*.h' 2>/dev/null); do
             if grep -q '^#define TRACE_INCLUDE_PATH[[:space:]]*\.' "$f" 2>/dev/null; then
@@ -52,14 +49,17 @@ jobs:
               fi
             fi
           done
-          # Remove -Werror everywhere (GCC 9 on 2019 kernel: many -Werror=* fire; KCFLAGS=-Wno-error
-          # is overridden because -Werror is appended after KCFLAGS in the build flags)
+          # Remove -Werror (2019 kernel under modern clang fires many -Werror=*; KCFLAGS is overridden later)
           grep -rl -- '-Werror' --include='Makefile*' . 2>/dev/null | xargs sed -i -E 's/-Werror=[A-Za-z0-9_-]+//g; s/([[:space:]])-Werror([[:space:]])/\1\2/g; s/-Werror$//' 2>/dev/null || true
           export KCFLAGS="-Wno-error"
-          make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- vendor/lahaina-qgki_defconfig
-          make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- -j$(nproc) Image.gz dtbs 2>&1 | tee build.log
+          make ARCH=arm64 LLVM=1 vendor/lahaina-qgki_defconfig
+          echo "=== key config (must match stock) ==="
+          grep -E "CONFIG_CC_IS_CLANG|CONFIG_CFI_CLANG|CONFIG_MODVERSIONS|CONFIG_MODULE_SIG|CONFIG_LOCALVERSION|CONFIG_LTO" .config
+          cp .config arch/arm64/boot/kernel_config.txt
+          make ARCH=arm64 LLVM=1 -j$(nproc) Image.gz dtbs 2>&1 | tee build.log
           echo "--- build outputs ---"
           ls -la arch/arm64/boot/ 2>/dev/null || echo "no boot dir"
+          ls arch/arm64/boot/dts/vendor/qcom/*.dtb 2>/dev/null | head -5 || echo "no dtb glob"
 
       - name: Upload kernel artifacts
         if: always()
@@ -69,5 +69,6 @@ jobs:
           path: |
             arch/arm64/boot/Image.gz
             arch/arm64/boot/dts/vendor/qcom/*.dtb
+            arch/arm64/boot/kernel_config.txt
             build.log
           if-no-files-found: warn
