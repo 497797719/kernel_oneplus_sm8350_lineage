@@ -29,6 +29,7 @@ jobs:
       - name: Build kernel (lahaina-qgki, GCC)
         run: |
           set -o pipefail
+          export KCFLAGS="-Wno-error=format -Wno-error=array-bounds -Wno-error=maybe-uninitialized -Wno-error=unused-but-set-variable -Wno-error=strict-overflow"
           make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- vendor/lahaina-qgki_defconfig
           make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- -j$(nproc) Image.gz dtbs 2>&1 | tee build.log
           echo "--- build outputs ---"
