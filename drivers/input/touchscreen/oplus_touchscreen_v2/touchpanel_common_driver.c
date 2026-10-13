@@ -3440,6 +3440,10 @@ static int tp_suspend(struct device *dev)
 	if (ts->black_gesture_support) {
 		if ((CHK_BIT(ts->gesture_enable, 0x01)) == 1) {
 			ts->ts_ops->mode_switch(ts->chip_data, MODE_GESTURE, ts->gesture_enable);
+			/* P0-v3-custom: repeat full gesture-mode setup like the
+			 * suspend_gesture_cfg path (ColorOS) so the IC reliably enters
+			 * gesture detection on this panel. */
+			operate_mode_switch(ts);
 			goto EXIT;
 		}
 	}
