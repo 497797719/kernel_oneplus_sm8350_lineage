@@ -2741,6 +2741,10 @@ static int syna_tcm_set_gesture_mode(struct syna_tcm_data *tcm_info, int enable)
 		 tcm_info->gesture_mask);
 
 	if (enable) {
+		/* P0-custom v2: force full gesture mask and write DC_GESTURE_MASK
+		 * before DC_IN_WAKEUP_GESTURE_MODE so firmware picks up the mask
+		 * while entering gesture mode (dts default 0x1 leaves DTAP dead). */
+		tcm_info->gesture_mask = 0xFFFF;
 		retval = syna_tcm_sleep(tcm_info, false);
 
 		if (retval < 0) {
