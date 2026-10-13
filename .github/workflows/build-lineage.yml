@@ -1,0 +1,40 @@
+name: Build Lineage Kernel (lemonadep)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [lineage-23.2-custom]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: lineage-23.2-custom
+          fetch-depth: 1
+
+      - name: Setup clang (r416183b, LineageOS official)
+        run: |
+          git clone --depth 1 https://github.com/LineageOS/android_prebuilts_clang_kernel_linux-x86 clang
+          cd clang && (git checkout clang-r416183b 2>/dev/null || git checkout master 2>/dev/null || true)
+          cd .. && echo "$PWD/clang/bin" >> $GITHUB_PATH
+          clang --version | head -2
+
+      - name: Build kernel (lahaina-qgki)
+        run: |
+          make ARCH=arm64 LLVM=1 CC=clang lahaina-qgki_defconfig
+          make ARCH=arm64 LLVM=1 CC=clang -j$(nproc) Image.gz dtbs 2>&1 | tee build.log
+          echo "--- outputs ---"
+          ls -la arch/arm64/boot/Image.gz
+          ls arch/arm64/boot/dts/vendor/qcom/*.dtb 2>/dev/null | head -20
+
+      - name: Upload kernel artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: kernel-out
+          path: |
+            arch/arm64/boot/Image.gz
+            arch/arm64/boot/dts/vendor/qcom/
+            build.log
