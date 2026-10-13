@@ -36,7 +36,7 @@ jobs:
             if grep -q '^#define TRACE_INCLUDE_PATH[[:space:]]*\.' "$f" 2>/dev/null; then
               sed -i 's/^#define TRACE_INCLUDE_PATH[[:space:]]*\.$/#undef TRACE_INCLUDE_PATH/' "$f"
             fi
-            name=$(grep -m1 '^#define TRACE_INCLUDE_FILE[[:space:]]*[A-Za-z0-9_]' "$f" 2>/dev/null | sed -E 's/^#define TRACE_INCLUDE_FILE[[:space:]]+([A-Za-z0-9_]+).*/\1/')
+            name=$(grep -m1 '^#define TRACE_INCLUDE_FILE[[:space:]]*[A-Za-z0-9_]' "$f" 2>/dev/null | sed -E 's/^#define TRACE_INCLUDE_FILE[[:space:]]+([A-Za-z0-9_]+).*/\1/' || true)
             if [ -n "$name" ]; then
               ln -sf "$PWD/$f" "include/trace/events/$name.h" 2>/dev/null || true
             fi
